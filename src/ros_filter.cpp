@@ -124,7 +124,33 @@ RosFilter<T>::~RosFilter()
 template<typename T>
 void RosFilter<T>::reset()
 {
-  // Get rid of any initial poses (pretend we've never had a measurement)
+
+  geometry_msgs::msg::TransformStamped transformStamped;
+  // transformStamped.header.stamp = this->get_clock()->now();
+  transformStamped.header.stamp.sec = 0;
+  transformStamped.header.stamp.nanosec = 0;
+  // we cannot use the get_clock()->now() function as it would get the latest time before reset, 
+  // using 0 and 0 we are sure that we are before any other time
+  transformStamped.header.frame_id = world_frame_id_;
+  if(world_frame_id_ == "map")
+  {
+    transformStamped.child_frame_id = odom_frame_id_;
+  }
+  else
+  {
+    transformStamped.child_frame_id = base_link_frame_id_;
+  }
+  transformStamped.transform.translation.x = 0.0;  // Example translation
+  transformStamped.transform.translation.y = 0.0;
+  transformStamped.transform.translation.z = 0.0;
+
+  transformStamped.transform.rotation.x = 0.0;
+  transformStamped.transform.rotation.y = 0.0;
+  transformStamped.transform.rotation.z = 0.0;
+  transformStamped.transform.rotation.w = 1.0;
+
+  world_transform_broadcaster_->sendTransform(transformStamped);
+  
   initial_measurements_.clear();
   previous_measurements_.clear();
   previous_measurement_covariances_.clear();
@@ -242,11 +268,12 @@ void RosFilter<T>::accelerationCallback(
         topic_name << " is now " <<
         filter_utilities::toSec(last_message_times_[topic_name]) <<
         "\n");
-  } else {
-    // else if (reset_on_time_jump_ && rclcpp::Time::isSimTime())
-    //{
-    //  reset();
-    //}
+  }
+  else if (reset_on_time_jump_) {
+    reset();
+  }
+  else {
+    
 
     std::stringstream stream;
     stream << "The " << topic_name << " message has a timestamp before that of "
@@ -1911,11 +1938,11 @@ void RosFilter<T>::poseCallback(
         topic_name << " is now " <<
         filter_utilities::toSec(last_message_times_[topic_name]) <<
         "\n");
-  } else {
-    // else if (reset_on_time_jump_ && rclcpp::Time::isSimTime())
-    //{
-    //  reset();
-    // }
+  }
+  else if (reset_on_time_jump_) {
+    reset();
+  }
+  else {
 
     std::stringstream stream;
     stream << "The " << topic_name << " message has a timestamp before that of "
